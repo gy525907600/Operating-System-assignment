@@ -94,6 +94,17 @@ then
 	sudo chmod g+rwx /home${arrs[$i]}
 	sudo chmod o-rwx /home${arrs[$i]}
 fi
+
+#alias
+#if the user in sudo group
+#create an alias off for systemctl poweroff
+if [[${arrgone[$i]} == "sudo" || ${arrgtwo[$i]} == "sudo" ]];
+then
+sudo echo 'alias off="systemctl poweroff"' > /home/${username[$i]}/.bash_aliases
+sudo source /home/${username[$i]}/.bashrc
+fi
+
+
 echo "finished..........."
 echo ""
 done
@@ -112,22 +123,23 @@ function readfile()
 	fi
 }
 
-# check whether user input argument
-if [ "$1" != "" ]
-	then
-# check whether argument is URL
+
+
+function input()
+{
+# check whether input information is URL
 http="http"
-identifyUrl=$(echo ${1%%/*} | grep "${http}")
+identifyUrl=$(echo ${input%%/*} | grep "${http}")
 
 if [[ $identifyUrl != "" ]]
 		then
 #get the file name of URL
-		file=${1##*/} 
+		file=${input##*/} 
 #if file dons not exist, download file
 #if file exist skip download
 	if [[ ! -f "$file" ]];
 		then
-		wget $1	
+		wget $input
 		else 
 		echo "file exist, will skip download"		
 	fi
@@ -137,7 +149,7 @@ if [[ $identifyUrl != "" ]]
 #if argument not URL		
 	else
 # if local location exist, check permission and run
-		file=$1
+		file=$input
 		if [ -f "$file" ];
 			then 
 			readfile
@@ -145,35 +157,18 @@ if [[ $identifyUrl != "" ]]
 			error_exit "file not found, please check again"
 		fi
 	fi
+}
+
+#check whether user input argument
+if [ "$1" != ""]
+then
+	input=$1
+	input
+
 else
 	echo "Please input a file or url:"
 	read input
-	http="http"
-
-	identifyUrl=$(echo ${1%%/*} | grep "${http}")
-	if [[ $identifyUrl != "" ]]
-		then
-
-		file=${1##*/} 
-		if [[ ! -f "$file" ]];
-		then
-			wget $input
-		
-		else
-		
-		echo "file exist, will skip download"		
-		fi
-		readfile
-	else
-		file=$input
-		if [ -f "$file" ];
-			then
-			readfile	
-		else
-			
-			error_exit "file not found, please check again"
-		fi
-	fi
+	input
 fi
 
 #cat users.csv | awk -F";" '{print $1}'
