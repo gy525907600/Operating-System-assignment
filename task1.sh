@@ -47,15 +47,15 @@ do
 #check whether group exist
 #if group not exist create group
 egrep "^${arrgone[$i]}" /etc/group >& /dev/null
-#if [ $? -ne 0 ]
-#then
-#sudo groupadd ${arrgone[$i]}
-#fi
+if [ $? -ne 0 ]
+then
+sudo groupadd ${arrgone[$i]}
+fi
 egrep "^${arrgtwo[$i]}" /etc/group >& /dev/null
-#if [ $? -ne 0 ]
-#then
-#sudo groupadd ${arrgtwo[$i]}
-#fi
+if [ $? -ne 0 ]
+then
+sudo groupadd ${arrgtwo[$i]}
+fi
 
 #create user and passwd
 username=${arrf[$i]}${arrl[$i]}
@@ -65,52 +65,57 @@ echo "password will be: $password"
 
 #if user not exist, create user,set passwd(need change passwd when user first time login)
 egrep "^$username" /etc/passwd >& /dev/null
-#if [ $? -ne 0 ]
-#then
-#	sudo useradd -d /home/$username -m -s /bin/bash $username
-#	echo -e "$password\n$password" | sudo passwd $username
-#	sudo chage -d 0 $username
-#fi
+if [ $? -ne 0 ]
+then
+	sudo useradd -d /home/$username -m -s /bin/bash $username
+	echo -e "$password\n$password" | sudo passwd $username
+	sudo chage -d 0 $username
+fi
 
 
 #add user in group
 echo "will add $username in to group - ${arrgone[$i]}"
 echo "will add $username in to group - ${arrgtwo[$i]}"
-#sudo usermod -a -G ${arrgone[$i]} $username
-#sudo usermod -a -G ${arrgtwo[$i]} $username
+sudo usermod -a -G ${arrgone[$i]} $username
+sudo usermod -a -G ${arrgtwo[$i]} $username
 
 
 #sharefolder
 #if directory not exist, create directory
-echo "will create sharefolder /home${arrs[$i]}"
-#if [ ! -n "${arrs[$i]}" ];
-#then
-#	if [[ ! -d "/home${arrs[$i]}" ]]
-#	then
-#		sudo mkdir /home${arrs[$i]}
-#		echo ""
-#	else
-#		echo "directory exist"
-#	fi
 
-#	sudo chgrp ${arrgone[$i]} /home${arrs[$i]}
-#	sudo chmod g+rwx /home${arrs[$i]}
-#	sudo chmod o-rwx /home${arrs[$i]}
-#fi
+if [ -n "${arrs[$i]}" ];
+then
+	if [ -d "/home${arrs[$i]}" ];
+	then
+	
+		echo "will create sharefolder /home${arrs[$i]}"
+		echo "file exist"
+	else
+		echo "will create sharefolder /home${arrs[$i]}"
+		mkdir "/home${arrs[$i]}"
+		echo ""
+	fi
+
+	sudo chgrp ${arrgone[$i]} /home${arrs[$i]}
+	sudo chmod g+rwx /home${arrs[$i]}
+	sudo chmod o-rwx /home${arrs[$i]}
+fi
 
 #alias
 #if the user in sudo group
 #create an alias off for systemctl poweroff
-#if [[ ${arrgone[$i]} == "sudo" || ${arrgtwo[$i]} == "sudo" ]];
-#then
-#sudo echo 'alias off="systemctl poweroff"' > /home/${username[$i]}/.bash_aliases
-#sudo source /home/${username[$i]}/.bashrc
-#fi
+if [[ ${arrgone[$i]} == "sudo" || ${arrgtwo[$i]} == "sudo" ]];
+then
+sudo echo 'alias off="systemctl poweroff"' > "/home/${username[$i]}/.bash_aliases"
+sudo source "/home/${username[$i]}/.bashrc"
+fi
 
+done
 
 echo "finished..........."
 echo ""
-done
+
+
 }
 
 #check whether the file can be read
