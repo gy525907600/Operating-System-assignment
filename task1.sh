@@ -5,6 +5,7 @@ function error_exit()
 {
 echo $1
 echo "Exiting................."
+exit 1
 }
 
 
@@ -27,94 +28,209 @@ arry=($year)
 
 
 #get groupname
-groupone=$(sed '1d' $file | awk -F'[,;]' '{print $3}' )
-grouptwo=$(sed '1d' $file | awk -F";" '{print $3}' | cut -d ',' -f 2)
+groupone=$(sed '1d' $file | awk -F'[,;]' '{if($3 == "") {print "empty";} else {print $3;}}' )
+grouptwo=$(sed '1d' $file | awk -F";" '{if($3 == "") {print "empty";} else {print $3;}}' | cut -d ',' -f 2)
 arrgone=($groupone)
 arrgtwo=($grouptwo)
 
 
-
 #get sharefolder name
-sharedFolder=$(sed '1d' $file | awk -F";" '{print $4}')
+sharedFolder=$(sed '1d' $file | awk -F";" '{if($4 == "") {print "empty";} else {print $4;}}')
 arrs=($sharedFolder)
 
+echo ""
+# ask user whether they want to continue
+echo "Totally will add ${#arrl[@]} user. Please input [yes] or [no] to continue..."
+read continue
+if [[ $continue = "yes" ]];
+then
 
 
 #this loop creates a user,passwd,group,sharefolder at a time
 for ((i=0;i<${#arrl[@]};i++))
 do
 
+#set the number for each user
+num=$(($i+1))
+
 #check whether group exist
-#if group not exist create group
-egrep "^${arrgone[$i]}" /etc/group >& /dev/null
-if [ $? -ne 0 ]
+#if group not exist, create group
+echo ">>>>>>      $num         >>>>>>"
+if [ ${arrgone[$i]} != "empty" ];
 then
-sudo groupadd ${arrgone[$i]}
+	egrep "^${arrgone[$i]}" /etc/group >& /dev/null
+	if [ $? -ne 0 ]
+	then
+		echo "will create group - ${arrgone[$i]}"
+		sudo groupadd ${arrgone[$i]}
+		if [ $? -eq 0 ];
+		then
+			echo "==== group create successfully ===="
+		else
+			error_exit "==== group create successfully ===="
+		fi
+	fi
+	echo " "
 fi
-egrep "^${arrgtwo[$i]}" /etc/group >& /dev/null
-if [ $? -ne 0 ]
+
+
+
+if [ ${arrgtwo[$i]} != "empty" ];
 then
-sudo groupadd ${arrgtwo[$i]}
+	egrep "^${arrgtwo[$i]}" /etc/group >& /dev/null
+	if [ $? -ne 0 ]
+	then
+	echo "will create group - ${arrgone[$i]}"
+	sudo groupadd ${arrgtwo[$i]}
+		if [ $? -eq 0 ];
+		then
+			echo "==== group create successfully ===="
+		else
+			error_exit "==== group create successfully ===="
+		fi
+	fi
+	echo " "
 fi
+
 
 #create user and passwd
 username=${arrf[$i]}${arrl[$i]}
 password=${arrm[$i]}${arry[$i]}
-echo "will create user: $username"
-echo "password will be: $password"
 
 #if user not exist, create user,set passwd(need change passwd when user first time login)
+echo "will create user: $username"
+echo "password will be: $password"
 egrep "^$username" /etc/passwd >& /dev/null
 if [ $? -ne 0 ]
 then
+	
 	sudo useradd -d /home/$username -m -s /bin/bash $username
+	if [ $? -eq 0 ];
+	then
+		echo "==== user create successfully ===="	
+	else
+		error_exit "==== user create unsuccessfully ===="
+	fi
 	echo -e "$password\n$password" | sudo passwd $username
 	sudo chage -d 0 $username
+else
+	echo "the user -$username exist, will skip this step"
 fi
+echo " "
 
 
 #add user in group
-echo "will add $username in to group - ${arrgone[$i]}"
-echo "will add $username in to group - ${arrgtwo[$i]}"
-sudo usermod -a -G ${arrgone[$i]} $username
-sudo usermod -a -G ${arrgtwo[$i]} $username
-
-
-#sharefolder
-#if directory not exist, create directory
-
-if [ -n "${arrs[$i]}" ];
+if [[ ${arrgone[$i]} != "empty" &&  ${arrgtwo[$i]} != "empty" ]];
 then
-	if [ -d "/home${arrs[$i]}" ];
+	echo "will add $username in to group - ${arrgone[$i]}"
+	sudo usermod -a -G ${arrgone[$i]} $username
+	if [ $? -eq 0 ];
 	then
-	
-		echo "will create sharefolder /home${arrs[$i]}"
-		echo "file exist"
+		echo "==== add user in ${arrgone[$i]} group successfully ===="	
 	else
-		echo "will create sharefolder /home${arrs[$i]}"
-		mkdir "/home${arrs[$i]}"
-		echo ""
+		error_exit "==== add user in ${arrgone[$i]} unsuccessfully ===="
+	fi	
+	echo " "
+	if [ ${arrgone[$i]} != ${arrgtwo[$i]} ];
+	then
+		echo "will add $username in to group - ${arrgtwo[$i]}"
+		sudo usermod -a -G ${arrgtwo[$i]} $username
+		if [ $? -eq 0 ];
+			then	
+			echo "==== add user in ${arrgtwo[$i]} group successfully ===="	
+		else
+			error_exit "==== add user in ${arrgtwo[$i]} unsuccessfully ===="
+		fi
+		echo " "
+	fi
+fi
+
+
+#create sharefolder
+#if directory not exist, create directory
+if [ ${arrs[$i]} != "empty" ];
+then
+	echo "will create sharefolder /home/$username${arrs[$i]}"
+	if [ -d "/home/$username${arrs[$i]}" ];
+	then
+		echo "folder exist, will skip this step"
+	else
+#create folder
+		sudo mkdir "/home/$username${arrs[$i]}"
+	fi
+#change owner and group	
+	if [ ${arrgone[$i]} != "empty" ];
+	then
+	sudo chown root:${arrgone[$i]} /home/$username${arrs[$i]}
 	fi
 
-	sudo chgrp ${arrgone[$i]} /home${arrs[$i]}
-	sudo chmod g+rwx /home${arrs[$i]}
-	sudo chmod o-rwx /home${arrs[$i]}
+	if [ ${arrgtwo[$i]} != "empty" ];
+	then
+	sudo chown root:${arrgone[$i]} /home/$username${arrs[$i]}
+	fi
+#change mode
+	sudo chmod g+rwx /home/$username${arrs[$i]}
+	sudo chmod o-rwx /home/$username${arrs[$i]}
+	if [ $? -eq 0 ];
+	then
+		echo "==== sharefolder create successfully ===="	
+	else		
+		error_exit "==== sharefolder create unsuccessfully ===="
+	fi
+	echo " "
+
+#create softlink for sharefolder
+	echo "will create softlink for sharefolder"
+	if [ -d "/home/$username/shared" ];
+	then
+		echo "link exist, will skip this step"
+	else	
+		sudo ln -s /home/$username${arrs[$i]} /home/$username/shared
+		if [ $? -eq 0 ];
+		then
+			echo "==== sharefolder create successfully ===="	
+		else	
+			error_exit "==== sharefolder create unsuccessfully ===="
+		fi
+	
+	fi	
+	echo " "
 fi
+
 
 #alias
 #if the user in sudo group
 #create an alias off for systemctl poweroff
 if [[ ${arrgone[$i]} == "sudo" || ${arrgtwo[$i]} == "sudo" ]];
 then
-sudo echo 'alias off="systemctl poweroff"' > "/home/${username[$i]}/.bash_aliases"
-sudo source "/home/${username[$i]}/.bashrc"
+	echo "this user in the sudo group, will set alias --"
+	echo "alias off="'"systemctl poweroff"'"" | sudo tee /home/$username/.bash_aliases
+	source /home/$username/.bashrc
+	if [ $? -eq 0 ];
+	then
+		echo "==== alias create successfully ===="	
+	else
+		error_exit "==== alias create unsuccessfully ===="
+	fi
+	echo " "
 fi
 
+read -s -n1 -p "user $num finished, press any key to continue..."
+echo " "
+echo " "
+echo "::::::::::::::::::::::::::::::::::::::::::::::::::::::"
 done
 
 echo "finished..........."
 echo ""
 
+elif [[ $continue = "no" ]];
+then
+echo "will exit..."
+else
+echo "Please input [yes] or [no], exiting..."
+
+fi
 
 }
 
@@ -140,9 +256,9 @@ http="http"
 identifyUrl=$(echo ${input%%/*} | grep "${http}")
 
 if [[ $identifyUrl != "" ]]
-		then
+	then
 #get the file name of URL
-		file=${input##*/} 
+	file=${input##*/} 
 #if file dons not exist, download file
 #if file exist skip download
 	if [[ ! -f "$file" ]];
