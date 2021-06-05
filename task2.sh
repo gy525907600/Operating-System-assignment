@@ -1,73 +1,91 @@
 #!/bin/bash
 
-# A function of transferring tar.gz to remote servea
-function transfer()
+function error_exit()
 {
-#generate a compressed tarball archive of the target directory
-	tar -cvf $dir.tar.gz $dir
+echo $1
+echo "exiting..."
+exit 1
+}
 
-#prompt the user during execution for the following details
-	echo "Please input IP address or URL of the remote server"
-	read remoteserve
+# main function for copy tar.gz to remote server
+function run()
+{
+#compressed file
+filename=${input##*/}
+echo "will comprese file"
+tar -cvf $filename.tar.gz $input
+if [ $? -eq 0 ];
+then
+	echo "==== compress successfully ===="
+else
+	error_exit "==== compress unsuccessfully ===="
+fi
+
+#read input
+echo "Please input IP address or URL of the remote server"
+read remoteserve
 
 #check whether the IP address exists	
-	if nc -z $remoteserve 22 2>/dev/null; then
-		echo "$remoteserve exists"
-	else
-		echo "Not found $remoteserve"
-		exit 1
-	fi
+if nc -z $remoteserve 22 2>/dev/null; then
+	echo " "
+else
+	error_exit "==== can not found $remoteserve ===="
 	
-	echo "Please input port number of the remote serve"
-	read port
-	echo "Please input the path of target directory"
-	read target
-	echo "Chcking wheter the target directory exists>>>>>>"
-	if ssh $remoteserve test -d $target;
-	then
-		echo "$target exists"
-	else
-		echo "Not found $target, exiting..."
-		exit 1
-	fi
+fi
+	
+echo "Please input port number of the remote serve"
+read port
+echo "Please input the path of target directory"
+read target
+
+#Check wheter the target directory exist
+echo "will check wheter the target directory exist"
+if ssh $remoteserve test -d $target;
+then
+	echo "==== $target exists, will transfer the file ===="
+else
+	error_exit "==== can not found $target ===="	
+fi
 
 #transfer file to remote serve
-	echo "transferring the file..."
-	scp -P $port $dir.tar.gz $USER@$remoteserve:"$target"
+scp -P $port $filename.tar.gz $USER@$remoteserve:"$target"
+if [ $? -eq 0 ];then
+	echo " "
+else
+	error_exit "transfer unseccussfully"
+fi
 
-	echo "Checking whether this file transsfer successfully>>>>>>"	
-	sshhost="server"
-	file="$target/$dir.tar.gz"
-	if ssh $remoteserve test -e $file;	
-	then
-		echo "$file exists, transferred successfully!"
-	else	
-		echo "$file does not exist, exiting..."
-		exit 1
+#check whether this file transsfer successfully"	
+echo "will check whether the file on the remote server"
+sshhost="server"
+file="$target/$filename.tar.gz"
+if ssh $remoteserve test -e $file;	
+then
+	echo "==== correct ===="
+else	
+	error_exit "$file transferred unsuccessfully"
+fi
+
+echo "finished..."
+}
+
+function checkInput()
+{
+
+     	if [[ -d $input || -f $input ]]; then
+		run
+	else
+		error_exit "No such file or directory"
 	fi
 }
 
-
-#check whether the argument is Null or not
+#check whether input argument
 if [ "$1" != "" ]; then
-	echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-	if [ -d $1 ]; then
-		dir=$1
-		transfer
-	else
-		echo "No such file or directory, please try again!"
-		echo "exit....................."
-		exit 1	
-	fi
+	input=$1
+	checkInput
 else 
 	echo "Please input a directory name: "
-	read dir
-	if [[ ! -d $dir ]]; then
-		echo "No such file or directory, please try again!"
-		echo "exit....................."
-		exit 1
-	else
-		transfer
-	fi
+	read input
+	checkInput
 fi
 
