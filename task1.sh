@@ -294,7 +294,6 @@ else
 	input
 fi
 
-#cat users.csv | awk -F";" '{print $1}'
 
 echo "##########################################"
 
